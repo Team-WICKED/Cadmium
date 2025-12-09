@@ -1,0 +1,36 @@
+{
+  "name": "cadmium-discord-bot",
+  "version": "2.0.0",
+  "description": "카드뮴 - 다중 AI 모델 지원 Discord 챗봇 (Gemini, OpenAI, Claude, Perplexity)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "node index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "gemini",
+    "openai",
+    "claude",
+    "perplexity",
+    "ai",
+    "chatbot",
+    "multi-model"
+  ],
+  "author": "Team WICKED (ingwannu)",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.1"
+  },
+  "engines": {
+    "node": ">=16.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/cadmium-bot"
+  }
+}
