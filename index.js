@@ -44,6 +44,15 @@ if (ALLOWED_GUILDS.includes('DISABLED')) {
 // 기본 AI 모델 설정 (환경 변수로 지정 가능)
 let DEFAULT_AI_MODEL = (process.env.DEFAULT_AI_MODEL || 'gemini').toLowerCase();
 
+// 봇 시동어 설정 (환경 변수로 지정 가능, 기본값: 카드야)
+const BOT_PREFIX = process.env.BOT_PREFIX || '카드야';
+
+// 봇 이름 설정 (초기화 명령어용, 환경 변수로 지정 가능, 기본값: 카드뮴)
+const BOT_NAME = process.env.BOT_NAME || '카드뮴';
+
+console.log(`🤖 봇 시동어: "${BOT_PREFIX}"`);
+console.log(`📛 봇 이름: "${BOT_NAME}" (초기화 명령어용)`);
+
 // AI 모델별 설정 - OpenAI 모델 (2024년 12월 최신)
 const OPENAI_MODELS = [
     'gpt-4o',                      // GPT-4 Omni (최신, 가장 강력)
@@ -1228,15 +1237,16 @@ client.on('messageCreate', async message => {
     }
     
     // 도움말
-    if (message.content.trim() === '카드뮴 도움말') {
+    const helpCommand = `${BOT_NAME} 도움말`;
+    if (message.content.trim() === helpCommand) {
         const embed = new EmbedBuilder()
             .setTitle('📚 카드뮴 도움말')
             .setDescription('카드뮴 사용법')
             .setColor(0x00ff00)
             .addFields(
-                { name: '💬 채팅', value: '`카드야 (할말)` - 카드뮴이 응답합니다.', inline: false },
-                { name: '🎨 이미지 생성', value: '`카드야 이미지 (설명)` - AI로 이미지를 생성합니다.', inline: false },
-                { name: '🗑️ 기억 초기화', value: '`카드뮴기억초기화` 또는 `카드뮴초기화` - 저장된 기억을 초기화합니다.', inline: false },
+                { name: '💬 채팅', value: `\`${BOT_PREFIX} (할말)\` - 카드뮴이 응답합니다.`, inline: false },
+                { name: '🎨 이미지 생성', value: `\`${BOT_PREFIX} 이미지 (설명)\` - AI로 이미지를 생성합니다.`, inline: false },
+                { name: '🗑️ 기억 초기화', value: `\`${BOT_NAME}기억초기화\` 또는 \`${BOT_NAME}초기화\` - 저장된 기억을 초기화합니다.`, inline: false },
                 { name: '📖 지식 추가', value: '`/지식추가` - 서버별 기본지식을 추가합니다. (관리자 전용)', inline: false },
                 { name: '🤖 모델 변경', value: '`/모델변경` - AI 모델을 변경합니다. (관리자 전용)', inline: false },
                 { name: '🔍 현재 모델', value: '`/현재모델` - 현재 사용 중인 AI 모델을 확인합니다.', inline: false },
@@ -1249,8 +1259,11 @@ client.on('messageCreate', async message => {
     }
     
     // 기억 초기화
-    if (message.content.trim().startsWith('카드뮴초기화') || 
-        message.content.trim().startsWith('카드뮴기억초기화')) {
+    const resetCommand1 = `${BOT_NAME}초기화`;
+    const resetCommand2 = `${BOT_NAME}기억초기화`;
+    
+    if (message.content.trim().startsWith(resetCommand1) || 
+        message.content.trim().startsWith(resetCommand2)) {
         try {
             const parts = message.content.trim().split(' ');
             
@@ -1295,9 +1308,10 @@ client.on('messageCreate', async message => {
     const channels = await loadChannels();
     if (!channels.includes(message.channelId)) return;
     
-    // 카드야 이미지 (이미지 설명)
-    if (message.content.startsWith('카드야 이미지')) {
-        const imagePrompt = message.content.substring('카드야 이미지'.length).trim();
+    // {시동어} 이미지 (이미지 설명)
+    const imageCommand = `${BOT_PREFIX} 이미지`;
+    if (message.content.startsWith(imageCommand)) {
+        const imagePrompt = message.content.substring(imageCommand.length).trim();
         if (!imagePrompt) {
             await message.channel.send('❓ 이미지 설명을 입력해주세요.');
             return;
@@ -1332,9 +1346,9 @@ client.on('messageCreate', async message => {
         return;
     }
 
-    // 카드야 (할말)
-    if (message.content.startsWith('카드야')) {
-        const userMsg = message.content.substring('카드야'.length).trim();
+    // {시동어} (할말)
+    if (message.content.startsWith(BOT_PREFIX)) {
+        const userMsg = message.content.substring(BOT_PREFIX.length).trim();
         if (!userMsg) {
             await message.channel.send('❓ 할말을 입력해주세요.');
             return;
