@@ -1,22 +1,21 @@
-# 🤖 카드뮴 (Cadmium) - 다중 AI 모델 디스코드 봇
+# 카드뮴 (Cadmium) - 다중 AI 모델 디스코드 봇
 
 Team WICKED에서 개발한 다중 AI 모델 지원 Discord 챗봇입니다.
 
 ## ✨ 주요 기능
 
-- 🔮 **다중 AI 모델 지원**: Gemini, OpenAI (ChatGPT), Claude, Perplexity
-- 💬 **대화형 AI**: 자연스러운 대화와 컨텍스트 기억
-- 🎨 **이미지 생성**: AI 기반 이미지 생성 (Gemini Imagen)
-- 🧠 **서버별 지식 관리**: 서버마다 커스텀 지식 추가 가능
-- 👤 **사용자별 기억**: 사용자별로 대화 내역 기억
-- ⚙️ **실시간 모델 전환**: 명령어로 AI 모델 즉시 변경
+- **다중 AI 모델 지원**: Gemini, OpenAI (ChatGPT), Claude, Perplexity
+- **대화형 AI**: 컨텍스트 기억, AI 기반 이미지 생성 (Gemini Imagen)
+- **서버별 지식 관리**: 서버마다 커스텀 지식 추가 가능
+- **사용자별 기억**: 사용자별로 대화 내역 기억
+- **실시간 모델 전환**: 명령어로 AI 모델 즉시 변경
 
-## 🚀 시작하기
+## 시작하기
 
 ### 필수 요구사항
 
 - Node.js 16.9.0 이상
-- Discord Bot Token
+- 디스코드 봇 토큰
 - 최소 하나 이상의 AI API 키 (Gemini, OpenAI, Claude, Perplexity 중 선택)
 
 ### 설치 방법
@@ -38,27 +37,6 @@ npm install
 cp .env.example .env
 ```
 
-`.env` 파일 예시:
-```env
-# Discord 봇 토큰 (필수)
-DISCORD_TOKEN=your_discord_bot_token_here
-
-# 봇 소유자 ID (선택, 여러 명 가능)
-OWNER_IDS=123456789012345678,987654321098765432
-
-# 허용할 서버 ID (선택, 비우면 모든 서버 허용)
-ALLOWED_GUILD_IDS=123456789012345678
-
-# 기본 AI 모델 (선택, 기본값: gemini)
-DEFAULT_AI_MODEL=gemini
-
-# AI API 키들 (사용할 모델의 키만 설정)
-GEMINI_API_KEY=your_gemini_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
-CLAUDE_API_KEY=your_claude_api_key_here
-PERPLEXITY_API_KEY=your_perplexity_api_key_here
-```
-
 4. **봇 실행**
 ```bash
 npm start
@@ -68,19 +46,19 @@ npm start
 
 ### 기본 명령어
 
-#### 💬 대화하기
+#### 대화하기 (시동어 변경 가능)
 ```
-카드야 안녕하세요!
+카드야 안녕!
 카드야 오늘 날씨 어때?
 ```
 
-#### 🎨 이미지 생성
+#### 이미지 생성
 ```
 카드야 이미지 귀여운 고양이
 카드야 이미지 미래 도시 풍경
 ```
 
-#### 🗑️ 기억 초기화
+#### 기억 초기화(개인 기억 초기화)
 ```
 카드뮴초기화
 카드뮴기억초기화
@@ -135,12 +113,14 @@ npm start
   - **Claude 3 시리즈**: Claude 3 Opus, Sonnet, Haiku
 - **특징**: 긴 컨텍스트 지원, 논리적 사고, 최신 4.5세대 모델, 200K 토큰 윈도우
 - **업데이트**: 2024년 12월 Claude 4.5 시리즈 (Opus/Sonnet/Haiku) 최신 모델명 적용
+- ```추후 신 모델 나올 시 직접 입력하셔야 합니다.```
 - **API 키 발급**: https://console.anthropic.com/
 
 ### 🔍 Perplexity
 - **모델**: Sonar (기본), Sonar Pro (고급), Sonar Reasoning (추론), Sonar Reasoning Pro (DeepSeek-R1), Sonar Deep Research (전문가급)
 - **특징**: 온라인 검색 기능, 최신 정보 제공, Chain of Thought 추론
 - **업데이트**: 2024년 12월 최신 Sonar 시리즈 모델 적용
+- ```추후 신 모델 나올 시 직접 입력하셔야 합니다.```
 - **API 키 발급**: https://www.perplexity.ai/settings/api
 
 ### ✨ 동적 모델 로딩 및 검증
@@ -193,7 +173,7 @@ npm start
 - **모든 서버 허용** (기본값): `ALLOWED_GUILD_IDS=` (비워둠)
 - **모든 서버 차단**: `ALLOWED_GUILD_IDS=false`
 
-## 📁 프로젝트 구조
+## 📁 구조
 
 ```
 cadmium/
@@ -248,7 +228,7 @@ cadmium/
 
 ## 📄 라이선스
 
-ISC License
+ CC BY-NC
 
 ## 🔗 유용한 링크
 
@@ -265,3 +245,4 @@ ISC License
 ---
 
 Made with ❤️ by Team WICKED
+
