@@ -18,10 +18,17 @@ const ALLOWED_GUILDS = ALLOWED_GUILDS_RAW.toLowerCase() === 'false' ? ['DISABLED
                        ALLOWED_GUILDS_RAW ? ALLOWED_GUILDS_RAW.split(',').map(id => id.trim()).filter(id => id) : [];
 
 // 다중 AI 모델 지원을 위한 API 키들 (쉽표로 구분하여 여러 키 지원)
-const GEMINI_API_KEYS = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.split(',').map(k => k.trim()).filter(k => k) : [];
-const OPENAI_API_KEYS = process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.split(',').map(k => k.trim()).filter(k => k) : [];
-const CLAUDE_API_KEYS = process.env.CLAUDE_API_KEY ? process.env.CLAUDE_API_KEY.split(',').map(k => k.trim()).filter(k => k) : [];
-const PERPLEXITY_API_KEYS = process.env.PERPLEXITY_API_KEY ? process.env.PERPLEXITY_API_KEY.split(',').map(k => k.trim()).filter(k => k) : [];
+// 유효하지 않은 키 필터링: 빈 문자열, "키", "your_", "봇토큰" 등 플레이스홀더 제외
+const isValidKey = (key) => {
+    if (!key || key.length < 10) return false; // 너무 짧은 키
+    const invalidPatterns = ['키', 'key', 'your_', '봇토큰', 'token', 'example', '숫자'];
+    return !invalidPatterns.some(pattern => key.toLowerCase().includes(pattern));
+};
+
+const GEMINI_API_KEYS = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.split(',').map(k => k.trim()).filter(isValidKey) : [];
+const OPENAI_API_KEYS = process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.split(',').map(k => k.trim()).filter(isValidKey) : [];
+const CLAUDE_API_KEYS = process.env.CLAUDE_API_KEY ? process.env.CLAUDE_API_KEY.split(',').map(k => k.trim()).filter(isValidKey) : [];
+const PERPLEXITY_API_KEYS = process.env.PERPLEXITY_API_KEY ? process.env.PERPLEXITY_API_KEY.split(',').map(k => k.trim()).filter(isValidKey) : [];
 
 // 호환성을 위한 단일 키 변수 (첫 번째 키 사용)
 const GEMINI_API_KEY = GEMINI_API_KEYS[0] || null;
@@ -35,6 +42,9 @@ if (GEMINI_API_KEYS.length > 0) console.log(`  - Gemini: ${GEMINI_API_KEYS.lengt
 if (OPENAI_API_KEYS.length > 0) console.log(`  - OpenAI: ${OPENAI_API_KEYS.length}개 키`);
 if (CLAUDE_API_KEYS.length > 0) console.log(`  - Claude: ${CLAUDE_API_KEYS.length}개 키`);
 if (PERPLEXITY_API_KEYS.length > 0) console.log(`  - Perplexity: ${PERPLEXITY_API_KEYS.length}개 키`);
+if (GEMINI_API_KEYS.length === 0 && OPENAI_API_KEYS.length === 0 && CLAUDE_API_KEYS.length === 0 && PERPLEXITY_API_KEYS.length === 0) {
+    console.warn(`⚠️ 경고: 유효한 AI API 키가 설정되지 않았습니다. .env 파일을 확인하세요.`);
+}
 
 // 환경 변수 검증 - Discord 토큰은 필수
 if (!TOKEN) {
@@ -95,15 +105,17 @@ const CLAUDE_MODELS = [
 ];
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 
-// Perplexity 모델 (2024년 12월 최신)
+// Perplexity 모델 (2024년 12월 최신 - Sonar 시리즈)
 const PERPLEXITY_MODELS = [
-    'llama-3.1-sonar-huge-128k-online',    // Llama 3.1 Huge (온라인 검색, 최강)
-    'llama-3.1-sonar-large-128k-online',   // Llama 3.1 Large (온라인 검색)
-    'llama-3.1-sonar-small-128k-online',   // Llama 3.1 Small (온라인 검색)
-    'llama-3.1-sonar-large-128k-chat',     // Llama 3.1 Large (채팅)
-    'llama-3.1-sonar-small-128k-chat',     // Llama 3.1 Small (채팅)
-    'llama-3.1-8b-instruct',               // Llama 3.1 8B
-    'llama-3.1-70b-instruct'               // Llama 3.1 70B
+    'sonar',                          // Sonar (기본 검색, 경량)
+    'sonar-pro',                      // Sonar Pro (고급 검색)
+    'sonar-reasoning',                // Sonar Reasoning (빠른 추론)
+    'sonar-reasoning-pro',            // Sonar Reasoning Pro (DeepSeek-R1 기반)
+    'sonar-deep-research',            // Sonar Deep Research (전문가급 리서치)
+    'llama-3.1-sonar-huge-128k-online',    // Llama 3.1 Huge (레거시)
+    'llama-3.1-sonar-large-128k-online',   // Llama 3.1 Large (레거시)
+    'llama-3.1-sonar-small-128k-online',   // Llama 3.1 Small (레거시)
+    'llama-3.1-70b-instruct'               // Llama 3.1 70B (레거시)
 ];
 const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
 
@@ -141,6 +153,7 @@ const CHANNELS_FILE = path.join(DATA_DIR, 'active_channels.json');
 const MEMORY_FILE = path.join(DATA_DIR, 'user_memories.json');
 const KNOWLEDGE_FILE = path.join(DATA_DIR, 'server_knowledge.json');
 const USERNAMES_FILE = path.join(DATA_DIR, 'user_usernames.json');
+const PREFERRED_MODELS_FILE = path.join(DATA_DIR, 'preferred_models.json');
 
 // 동적 모델 목록 캐시
 let cachedOpenAIModels = null;
@@ -357,6 +370,7 @@ let channelsCache = null;
 let memoriesCache = null;
 let knowledgeCache = null;
 let usernamesCache = null;
+let preferredModelsCache = null;
 
 // 데이터 폴더/파일 초기화
 async function initializeDataFiles() {
@@ -386,6 +400,12 @@ async function initializeDataFiles() {
             await fs.access(USERNAMES_FILE);
         } catch {
             await fs.writeFile(USERNAMES_FILE, JSON.stringify({}), 'utf-8');
+        }
+        
+        try {
+            await fs.access(PREFERRED_MODELS_FILE);
+        } catch {
+            await fs.writeFile(PREFERRED_MODELS_FILE, JSON.stringify({}), 'utf-8');
         }
         
         // 기존 메모리 변환 체크
@@ -435,6 +455,24 @@ async function loadChannels() {
 async function saveChannels(channels) {
     channelsCache = channels;
     await fs.writeFile(CHANNELS_FILE, JSON.stringify(channels), 'utf-8');
+}
+
+async function loadPreferredModels() {
+    if (preferredModelsCache !== null) return preferredModelsCache;
+    try {
+        const data = await fs.readFile(PREFERRED_MODELS_FILE, 'utf-8');
+        preferredModelsCache = JSON.parse(data);
+        return preferredModelsCache;
+    } catch {
+        preferredModelsCache = {};
+        await fs.writeFile(PREFERRED_MODELS_FILE, JSON.stringify({}), 'utf-8');
+        return preferredModelsCache;
+    }
+}
+
+async function savePreferredModels(models) {
+    preferredModelsCache = models;
+    await fs.writeFile(PREFERRED_MODELS_FILE, JSON.stringify(models, null, 2), 'utf-8');
 }
 
 async function loadMemories() {
@@ -564,21 +602,85 @@ async function getUsername(guildId, userId) {
     return usernames[gid]?.[uid] || '알 수 없음';
 }
 
+/**
+ * 사용자별 선호 모델 가져오기
+ * @param {string} userId - 사용자 ID
+ * @param {string} aiType - AI 타입 (gemini, openai, claude, perplexity)
+ * @returns {string|null} 선호 모델명 또는 null
+ */
+async function getPreferredModel(userId, aiType) {
+    const models = await loadPreferredModels();
+    return models[userId]?.[aiType] || null;
+}
+
+/**
+ * 사용자별 선호 모델 설정
+ * @param {string} userId - 사용자 ID
+ * @param {string} aiType - AI 타입 (gemini, openai, claude, perplexity)
+ * @param {string} modelName - 모델명
+ */
+async function setPreferredModel(userId, aiType, modelName) {
+    const models = await loadPreferredModels();
+    if (!models[userId]) {
+        models[userId] = {};
+    }
+    models[userId][aiType] = modelName;
+    await savePreferredModels(models);
+}
+
+/**
+ * 선호 모델을 우선순위 1로 재정렬
+ * @param {Array} modelList - 모델 배열
+ * @param {string} preferredModel - 우선순위로 올릴 모델명
+ * @returns {Array} 재정렬된 모델 배열
+ */
+function reorderModelsByPreference(modelList, preferredModel) {
+    if (!preferredModel) return modelList;
+    
+    const index = modelList.findIndex(model => {
+        // 문자열 배열인 경우
+        if (typeof model === 'string') {
+            return model === preferredModel;
+        }
+        // [modelName, endpoint] 형태인 경우 (Gemini)
+        if (Array.isArray(model)) {
+            return model[0] === preferredModel;
+        }
+        return false;
+    });
+    
+    if (index > 0) {
+        const reordered = [...modelList];
+        const [preferred] = reordered.splice(index, 1);
+        reordered.unshift(preferred);
+        return reordered;
+    }
+    
+    return modelList;
+}
+
 // ============================================================
 // AI 모델 호출 함수들 - OpenAI, Claude, Perplexity 지원
 // ============================================================
 
 /**
  * OpenAI API 호출 함수
- * ChatGPT 모델을 사용하여 응답 생성 (동적 모델 목록 지원)
+ * ChatGPT 모델을 사용하여 응답 생성 (동적 모델 목록 지원, 사용자별 선호 모델 적용)
  */
-async function sendOpenAI(messages, modelIndex = 0, keyIndex = 0) {
+async function sendOpenAI(messages, modelIndex = 0, keyIndex = 0, userId = null) {
     if (OPENAI_API_KEYS.length === 0) {
         throw new Error('OpenAI API 키가 설정되지 않았습니다.');
     }
 
     // 동적으로 모델 목록 가져오기
-    const availableModels = await fetchOpenAIModels();
+    let availableModels = await fetchOpenAIModels();
+    
+    // 사용자 선호 모델 적용
+    if (userId) {
+        const preferredModel = await getPreferredModel(userId, 'openai');
+        availableModels = reorderModelsByPreference(availableModels, preferredModel);
+    }
+    
     const model = availableModels[modelIndex] || availableModels[0];
     const apiKey = OPENAI_API_KEYS[keyIndex];
     
@@ -614,20 +716,20 @@ async function sendOpenAI(messages, modelIndex = 0, keyIndex = 0) {
         // 401/403 (인증 오류) - 다음 키 시도
         if ((status === 401 || status === 403) && keyIndex < OPENAI_API_KEYS.length - 1) {
             console.log(`다음 OpenAI API 키로 재시도 중...`);
-            return await sendOpenAI(messages, modelIndex, keyIndex + 1);
+            return await sendOpenAI(messages, modelIndex, keyIndex + 1, userId);
         }
         
         // 429 (할당량 초과) - 다음 키 시도
         if (status === 429 && keyIndex < OPENAI_API_KEYS.length - 1) {
             console.log(`다음 OpenAI API 키로 재시도 중...`);
-            return await sendOpenAI(messages, modelIndex, keyIndex + 1);
+            return await sendOpenAI(messages, modelIndex, keyIndex + 1, userId);
         }
         
         // 모든 키 실패 시 다음 모델로 재시도
         const availableModels = await fetchOpenAIModels();
         if (keyIndex >= OPENAI_API_KEYS.length - 1 && modelIndex < availableModels.length - 1) {
             console.log(`다음 OpenAI 모델로 재시도 중...`);
-            return await sendOpenAI(messages, modelIndex + 1, 0);
+            return await sendOpenAI(messages, modelIndex + 1, 0, userId);
         }
         
         throw error;
@@ -636,15 +738,22 @@ async function sendOpenAI(messages, modelIndex = 0, keyIndex = 0) {
 
 /**
  * Claude API 호출 함수
- * Anthropic의 Claude 모델 사용 (동적 모델 검증)
+ * Anthropic의 Claude 모델 사용 (동적 모델 검증, 사용자별 선호 모델 적용)
  */
-async function sendClaude(systemPrompt, messages, modelIndex = 0, keyIndex = 0) {
+async function sendClaude(systemPrompt, messages, modelIndex = 0, keyIndex = 0, userId = null) {
     if (CLAUDE_API_KEYS.length === 0) {
         throw new Error('Claude API 키가 설정되지 않았습니다.');
     }
 
     // 유효한 모델 목록 가져오기
-    const validModels = getValidClaudeModels();
+    let validModels = getValidClaudeModels();
+    
+    // 사용자 선호 모델 적용
+    if (userId) {
+        const preferredModel = await getPreferredModel(userId, 'claude');
+        validModels = reorderModelsByPreference(validModels, preferredModel);
+    }
+    
     const model = validModels[modelIndex] || validModels[0];
     const apiKey = CLAUDE_API_KEYS[keyIndex];
     
@@ -686,20 +795,20 @@ async function sendClaude(systemPrompt, messages, modelIndex = 0, keyIndex = 0) 
         // 401/403 (인증 오류) - 다음 키 시도
         if ((status === 401 || status === 403) && keyIndex < CLAUDE_API_KEYS.length - 1) {
             console.log(`다음 Claude API 키로 재시도 중...`);
-            return await sendClaude(systemPrompt, messages, modelIndex, keyIndex + 1);
+            return await sendClaude(systemPrompt, messages, modelIndex, keyIndex + 1, userId);
         }
         
         // 429 (할당량 초과) - 다음 키 시도
         if (status === 429 && keyIndex < CLAUDE_API_KEYS.length - 1) {
             console.log(`다음 Claude API 키로 재시도 중...`);
-            return await sendClaude(systemPrompt, messages, modelIndex, keyIndex + 1);
+            return await sendClaude(systemPrompt, messages, modelIndex, keyIndex + 1, userId);
         }
         
         // 모든 키 실패 시 다음 모델로 재시도
         const updatedValidModels = getValidClaudeModels();
         if (keyIndex >= CLAUDE_API_KEYS.length - 1 && modelIndex < updatedValidModels.length - 1) {
             console.log(`다음 Claude 모델로 재시도 중...`);
-            return await sendClaude(systemPrompt, messages, modelIndex + 1, 0);
+            return await sendClaude(systemPrompt, messages, modelIndex + 1, 0, userId);
         }
         
         throw error;
@@ -708,15 +817,22 @@ async function sendClaude(systemPrompt, messages, modelIndex = 0, keyIndex = 0) 
 
 /**
  * Perplexity API 호출 함수
- * 온라인 검색 기능을 포함한 AI 모델 (동적 모델 검증)
+ * 온라인 검색 기능을 포함한 AI 모델 (동적 모델 검증, 사용자별 선호 모델 적용)
  */
-async function sendPerplexity(messages, modelIndex = 0, keyIndex = 0) {
+async function sendPerplexity(messages, modelIndex = 0, keyIndex = 0, userId = null) {
     if (PERPLEXITY_API_KEYS.length === 0) {
         throw new Error('Perplexity API 키가 설정되지 않았습니다.');
     }
 
     // 유효한 모델 목록 가져오기
-    const validModels = getValidPerplexityModels();
+    let validModels = getValidPerplexityModels();
+    
+    // 사용자 선호 모델 적용
+    if (userId) {
+        const preferredModel = await getPreferredModel(userId, 'perplexity');
+        validModels = reorderModelsByPreference(validModels, preferredModel);
+    }
+    
     const model = validModels[modelIndex] || validModels[0];
     const apiKey = PERPLEXITY_API_KEYS[keyIndex];
     
@@ -757,20 +873,20 @@ async function sendPerplexity(messages, modelIndex = 0, keyIndex = 0) {
         // 401/403 (인증 오류) - 다음 키 시도
         if ((status === 401 || status === 403) && keyIndex < PERPLEXITY_API_KEYS.length - 1) {
             console.log(`다음 Perplexity API 키로 재시도 중...`);
-            return await sendPerplexity(messages, modelIndex, keyIndex + 1);
+            return await sendPerplexity(messages, modelIndex, keyIndex + 1, userId);
         }
         
         // 429 (할당량 초과) - 다음 키 시도
         if (status === 429 && keyIndex < PERPLEXITY_API_KEYS.length - 1) {
             console.log(`다음 Perplexity API 키로 재시도 중...`);
-            return await sendPerplexity(messages, modelIndex, keyIndex + 1);
+            return await sendPerplexity(messages, modelIndex, keyIndex + 1, userId);
         }
         
         // 모든 키 실패 시 다음 모델로 재시도
         const updatedValidModels = getValidPerplexityModels();
         if (keyIndex >= PERPLEXITY_API_KEYS.length - 1 && modelIndex < updatedValidModels.length - 1) {
             console.log(`다음 Perplexity 모델로 재시도 중...`);
-            return await sendPerplexity(messages, modelIndex + 1, 0);
+            return await sendPerplexity(messages, modelIndex + 1, 0, userId);
         }
         
         throw error;
@@ -918,10 +1034,14 @@ async function sendGemini(userId, userMsg, guildId = null, username = null) {
     contents.push({ role: 'user', parts: [{ text: formattedMsg }] });
     
     // 동적 모델 조회 및 유효한 모델 필터링
-    const validEndpoints = await getValidGeminiEndpoints();
+    let validEndpoints = await getValidGeminiEndpoints();
     
-    // 요청 길이에 따라 우선순위 결정 (긴 요청은 Pro 모델 우선)
-    const endpoints = userMsg.length >= 251 
+    // 사용자 선호 모델 적용
+    const preferredModel = await getPreferredModel(userId, 'gemini');
+    validEndpoints = reorderModelsByPreference(validEndpoints, preferredModel);
+    
+    // 요청 길이에 따라 우선순위 결정 (긴 요청은 Pro 모델 우선, 단 선호 모델이 이미 1순위)
+    const endpoints = userMsg.length >= 251 && !preferredModel
         ? validEndpoints.sort((a, b) => {
             // Pro 모델 우선
             const aPro = a[0].includes('pro') ? 1 : 0;
@@ -1064,7 +1184,7 @@ async function sendAI(userId, userMsg, guildId = null, username = null, modelTyp
             
             messages.push({ role: 'user', content: formattedMsg });
             
-            return await sendOpenAI(messages);
+            return await sendOpenAI(messages, 0, 0, userId);
         } 
         else if (aiModel === 'claude') {
             // Claude 형식으로 메시지 변환
@@ -1077,7 +1197,7 @@ async function sendAI(userId, userMsg, guildId = null, username = null, modelTyp
             
             messages.push({ role: 'user', content: formattedMsg });
             
-            return await sendClaude(systemPrompt, messages);
+            return await sendClaude(systemPrompt, messages, 0, 0, userId);
         } 
         else if (aiModel === 'perplexity') {
             // Perplexity 형식으로 메시지 변환
@@ -1090,7 +1210,7 @@ async function sendAI(userId, userMsg, guildId = null, username = null, modelTyp
             
             messages.push({ role: 'user', content: formattedMsg });
             
-            return await sendPerplexity(messages);
+            return await sendPerplexity(messages, 0, 0, userId);
         }
         else {
             throw new Error(`알 수 없는 AI 모델: ${aiModel}`);
@@ -1337,6 +1457,7 @@ client.on('messageCreate', async message => {
                 { name: '💬 채팅', value: `\`${BOT_PREFIX} (할말)\` - 카드뮴이 응답합니다.`, inline: false },
                 { name: '🎨 이미지 생성', value: `\`${BOT_PREFIX} 이미지 (설명)\` - AI로 이미지를 생성합니다.`, inline: false },
                 { name: '🗑️ 기억 초기화', value: `\`${BOT_NAME}기억초기화\` 또는 \`${BOT_NAME}초기화\` - 저장된 기억을 초기화합니다.`, inline: false },
+                { name: '⚙️ 세부 모델 변경', value: '`./세부모델변경 <AI타입> <모델명>` - 선호하는 세부 모델을 설정합니다. (우선순위 1로 설정)', inline: false },
                 { name: '📖 지식 추가', value: '`/지식추가` - 서버별 기본지식을 추가합니다. (관리자 전용)', inline: false },
                 { name: '🤖 모델 변경', value: '`/모델변경` - AI 모델을 변경합니다. (관리자 전용)', inline: false },
                 { name: '🔍 현재 모델', value: '`/현재모델` - 현재 사용 중인 AI 모델을 확인합니다.', inline: false },
@@ -1397,6 +1518,96 @@ client.on('messageCreate', async message => {
     // 활성화된 채널에서만 동작
     const channels = await loadChannels();
     if (!channels.includes(message.channelId)) return;
+    
+    // ./세부모델변경 명령어 (사용자별 선호 모델 설정)
+    if (message.content.trim().startsWith('./세부모델변경')) {
+        try {
+            const args = message.content.trim().split(' ');
+            
+            // 명령어만 입력한 경우 - 현재 설정 확인
+            if (args.length === 1) {
+                const models = await loadPreferredModels();
+                const userModels = models[message.author.id];
+                
+                let statusMsg = '**📋 현재 선호 모델 설정**\n\n';
+                
+                if (!userModels || Object.keys(userModels).length === 0) {
+                    statusMsg += '❌ 설정된 선호 모델이 없습니다.\n\n';
+                } else {
+                    if (userModels.gemini) statusMsg += `🔮 **Gemini**: \`${userModels.gemini}\`\n`;
+                    if (userModels.openai) statusMsg += `🤖 **OpenAI**: \`${userModels.openai}\`\n`;
+                    if (userModels.claude) statusMsg += `🧠 **Claude**: \`${userModels.claude}\`\n`;
+                    if (userModels.perplexity) statusMsg += `🔍 **Perplexity**: \`${userModels.perplexity}\`\n\n`;
+                }
+                
+                statusMsg += '**사용법**:\n';
+                statusMsg += '`./세부모델변경 <AI타입> <모델명>`\n\n';
+                statusMsg += '**AI 타입**: gemini, openai, claude, perplexity\n';
+                statusMsg += '**예시**: `./세부모델변경 gemini gemini-2.5-pro`';
+                
+                await message.channel.send(statusMsg);
+                return;
+            }
+            
+            // 모델 설정
+            if (args.length >= 3) {
+                const aiType = args[1].toLowerCase();
+                const modelName = args.slice(2).join(' ');
+                
+                // AI 타입 검증
+                const validTypes = ['gemini', 'openai', 'claude', 'perplexity'];
+                if (!validTypes.includes(aiType)) {
+                    await message.channel.send(`❌ 유효하지 않은 AI 타입입니다.\n사용 가능: ${validTypes.join(', ')}`);
+                    return;
+                }
+                
+                // 모델 존재 여부 확인
+                let modelExists = false;
+                let availableModels = [];
+                
+                if (aiType === 'gemini') {
+                    const endpoints = await getValidGeminiEndpoints();
+                    availableModels = endpoints.map(e => e[0]);
+                    modelExists = availableModels.includes(modelName);
+                } else if (aiType === 'openai') {
+                    availableModels = await fetchOpenAIModels();
+                    modelExists = availableModels.includes(modelName);
+                } else if (aiType === 'claude') {
+                    availableModels = getValidClaudeModels();
+                    modelExists = availableModels.includes(modelName);
+                } else if (aiType === 'perplexity') {
+                    availableModels = getValidPerplexityModels();
+                    modelExists = availableModels.includes(modelName);
+                }
+                
+                if (!modelExists) {
+                    let errorMsg = `❌ \`${modelName}\` 모델을 찾을 수 없습니다.\n\n`;
+                    errorMsg += `**사용 가능한 ${aiType.toUpperCase()} 모델**:\n`;
+                    errorMsg += availableModels.slice(0, 10).map(m => `• \`${m}\``).join('\n');
+                    if (availableModels.length > 10) {
+                        errorMsg += `\n... 외 ${availableModels.length - 10}개`;
+                    }
+                    await message.channel.send(errorMsg);
+                    return;
+                }
+                
+                // 선호 모델 저장
+                await setPreferredModel(message.author.id, aiType, modelName);
+                
+                await message.channel.send(
+                    `✅ **${aiType.toUpperCase()}** 선호 모델이 \`${modelName}\`(으)로 설정되었습니다.\n` +
+                    `이제 이 모델이 우선순위 1로 사용됩니다.`
+                );
+                return;
+            }
+            
+            await message.channel.send('❌ 사용법: `./세부모델변경 <AI타입> <모델명>`');
+        } catch (error) {
+            console.error('❌ 세부모델변경 오류:', error);
+            await message.channel.send('⚠️ 모델 설정 중 오류가 발생했습니다.');
+        }
+        return;
+    }
     
     // {시동어} 이미지 (이미지 설명)
     const imageCommand = `${BOT_PREFIX} 이미지`;
