@@ -17,11 +17,24 @@ const ALLOWED_GUILDS_RAW = process.env.ALLOWED_GUILD_IDS || '';
 const ALLOWED_GUILDS = ALLOWED_GUILDS_RAW.toLowerCase() === 'false' ? ['DISABLED'] :
                        ALLOWED_GUILDS_RAW ? ALLOWED_GUILDS_RAW.split(',').map(id => id.trim()).filter(id => id) : [];
 
-// 다중 AI 모델 지원을 위한 API 키들
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
-const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
+// 다중 AI 모델 지원을 위한 API 키들 (쉽표로 구분하여 여러 키 지원)
+const GEMINI_API_KEYS = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.split(',').map(k => k.trim()).filter(k => k) : [];
+const OPENAI_API_KEYS = process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.split(',').map(k => k.trim()).filter(k => k) : [];
+const CLAUDE_API_KEYS = process.env.CLAUDE_API_KEY ? process.env.CLAUDE_API_KEY.split(',').map(k => k.trim()).filter(k => k) : [];
+const PERPLEXITY_API_KEYS = process.env.PERPLEXITY_API_KEY ? process.env.PERPLEXITY_API_KEY.split(',').map(k => k.trim()).filter(k => k) : [];
+
+// 호환성을 위한 단일 키 변수 (첫 번째 키 사용)
+const GEMINI_API_KEY = GEMINI_API_KEYS[0] || null;
+const OPENAI_API_KEY = OPENAI_API_KEYS[0] || null;
+const CLAUDE_API_KEY = CLAUDE_API_KEYS[0] || null;
+const PERPLEXITY_API_KEY = PERPLEXITY_API_KEYS[0] || null;
+
+// API 키 로그
+console.log(`🔑 API 키 설정:`);
+if (GEMINI_API_KEYS.length > 0) console.log(`  - Gemini: ${GEMINI_API_KEYS.length}개 키`);
+if (OPENAI_API_KEYS.length > 0) console.log(`  - OpenAI: ${OPENAI_API_KEYS.length}개 키`);
+if (CLAUDE_API_KEYS.length > 0) console.log(`  - Claude: ${CLAUDE_API_KEYS.length}개 키`);
+if (PERPLEXITY_API_KEYS.length > 0) console.log(`  - Perplexity: ${PERPLEXITY_API_KEYS.length}개 키`);
 
 // 환경 변수 검증 - Discord 토큰은 필수
 if (!TOKEN) {
@@ -559,14 +572,15 @@ async function getUsername(guildId, userId) {
  * OpenAI API 호출 함수
  * ChatGPT 모델을 사용하여 응답 생성 (동적 모델 목록 지원)
  */
-async function sendOpenAI(messages, modelIndex = 0) {
-    if (!OPENAI_API_KEY) {
+async function sendOpenAI(messages, modelIndex = 0, keyIndex = 0) {
+    if (OPENAI_API_KEYS.length === 0) {
         throw new Error('OpenAI API 키가 설정되지 않았습니다.');
     }
 
     // 동적으로 모델 목록 가져오기
     const availableModels = await fetchOpenAIModels();
     const model = availableModels[modelIndex] || availableModels[0];
+    const apiKey = OPENAI_API_KEYS[keyIndex];
     
     try {
         const response = await axios.post(
@@ -580,11 +594,13 @@ async function sendOpenAI(messages, modelIndex = 0) {
             {
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`
+                    'Authorization': `Bearer ${apiKey}`
                 },
                 timeout: 30000
             }
         );
+
+        console.log(`✅ OpenAI API ${model} 성공 (키 #${keyIndex + 1})`);
 
         if (response.data?.choices?.[0]?.message?.content) {
             return response.data.choices[0].message.content;
@@ -592,13 +608,26 @@ async function sendOpenAI(messages, modelIndex = 0) {
         
         throw new Error('OpenAI 응답 형식이 올바르지 않습니다.');
     } catch (error) {
-        console.error(`OpenAI API 오류 (${model}):`, error.response?.data || error.message);
+        const status = error.response?.status;
+        console.error(`⚠️ OpenAI API 오류 (${model}, 키 #${keyIndex + 1}):`, error.response?.data || error.message);
         
-        // 다음 모델로 재시도
+        // 401/403 (인증 오류) - 다음 키 시도
+        if ((status === 401 || status === 403) && keyIndex < OPENAI_API_KEYS.length - 1) {
+            console.log(`다음 OpenAI API 키로 재시도 중...`);
+            return await sendOpenAI(messages, modelIndex, keyIndex + 1);
+        }
+        
+        // 429 (할당량 초과) - 다음 키 시도
+        if (status === 429 && keyIndex < OPENAI_API_KEYS.length - 1) {
+            console.log(`다음 OpenAI API 키로 재시도 중...`);
+            return await sendOpenAI(messages, modelIndex, keyIndex + 1);
+        }
+        
+        // 모든 키 실패 시 다음 모델로 재시도
         const availableModels = await fetchOpenAIModels();
-        if (modelIndex < availableModels.length - 1) {
+        if (keyIndex >= OPENAI_API_KEYS.length - 1 && modelIndex < availableModels.length - 1) {
             console.log(`다음 OpenAI 모델로 재시도 중...`);
-            return await sendOpenAI(messages, modelIndex + 1);
+            return await sendOpenAI(messages, modelIndex + 1, 0);
         }
         
         throw error;
@@ -609,14 +638,15 @@ async function sendOpenAI(messages, modelIndex = 0) {
  * Claude API 호출 함수
  * Anthropic의 Claude 모델 사용 (동적 모델 검증)
  */
-async function sendClaude(systemPrompt, messages, modelIndex = 0) {
-    if (!CLAUDE_API_KEY) {
+async function sendClaude(systemPrompt, messages, modelIndex = 0, keyIndex = 0) {
+    if (CLAUDE_API_KEYS.length === 0) {
         throw new Error('Claude API 키가 설정되지 않았습니다.');
     }
 
     // 유효한 모델 목록 가져오기
     const validModels = getValidClaudeModels();
     const model = validModels[modelIndex] || validModels[0];
+    const apiKey = CLAUDE_API_KEYS[keyIndex];
     
     try {
         const response = await axios.post(
@@ -630,12 +660,14 @@ async function sendClaude(systemPrompt, messages, modelIndex = 0) {
             {
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-api-key': CLAUDE_API_KEY,
+                    'x-api-key': apiKey,
                     'anthropic-version': '2023-06-01'
                 },
                 timeout: 30000
             }
         );
+
+        console.log(`✅ Claude API ${model} 성공 (키 #${keyIndex + 1})`);
 
         if (response.data?.content?.[0]?.text) {
             return response.data.content[0].text;
@@ -644,18 +676,30 @@ async function sendClaude(systemPrompt, messages, modelIndex = 0) {
         throw new Error('Claude 응답 형식이 올바르지 않습니다.');
     } catch (error) {
         const status = error.response?.status;
-        console.error(`Claude API 오류 (${model}):`, error.response?.data || error.message);
+        console.error(`⚠️ Claude API 오류 (${model}, 키 #${keyIndex + 1}):`, error.response?.data || error.message);
         
         // 모델이 존재하지 않는 경우 표시
         if (status === 404 || status === 400) {
             markInvalidModel('claude', model, status);
         }
         
-        // 다음 모델로 재시도
+        // 401/403 (인증 오류) - 다음 키 시도
+        if ((status === 401 || status === 403) && keyIndex < CLAUDE_API_KEYS.length - 1) {
+            console.log(`다음 Claude API 키로 재시도 중...`);
+            return await sendClaude(systemPrompt, messages, modelIndex, keyIndex + 1);
+        }
+        
+        // 429 (할당량 초과) - 다음 키 시도
+        if (status === 429 && keyIndex < CLAUDE_API_KEYS.length - 1) {
+            console.log(`다음 Claude API 키로 재시도 중...`);
+            return await sendClaude(systemPrompt, messages, modelIndex, keyIndex + 1);
+        }
+        
+        // 모든 키 실패 시 다음 모델로 재시도
         const updatedValidModels = getValidClaudeModels();
-        if (modelIndex < updatedValidModels.length - 1) {
+        if (keyIndex >= CLAUDE_API_KEYS.length - 1 && modelIndex < updatedValidModels.length - 1) {
             console.log(`다음 Claude 모델로 재시도 중...`);
-            return await sendClaude(systemPrompt, messages, modelIndex + 1);
+            return await sendClaude(systemPrompt, messages, modelIndex + 1, 0);
         }
         
         throw error;
@@ -666,14 +710,15 @@ async function sendClaude(systemPrompt, messages, modelIndex = 0) {
  * Perplexity API 호출 함수
  * 온라인 검색 기능을 포함한 AI 모델 (동적 모델 검증)
  */
-async function sendPerplexity(messages, modelIndex = 0) {
-    if (!PERPLEXITY_API_KEY) {
+async function sendPerplexity(messages, modelIndex = 0, keyIndex = 0) {
+    if (PERPLEXITY_API_KEYS.length === 0) {
         throw new Error('Perplexity API 키가 설정되지 않았습니다.');
     }
 
     // 유효한 모델 목록 가져오기
     const validModels = getValidPerplexityModels();
     const model = validModels[modelIndex] || validModels[0];
+    const apiKey = PERPLEXITY_API_KEYS[keyIndex];
     
     try {
         const response = await axios.post(
@@ -687,11 +732,13 @@ async function sendPerplexity(messages, modelIndex = 0) {
             {
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${PERPLEXITY_API_KEY}`
+                    'Authorization': `Bearer ${apiKey}`
                 },
                 timeout: 30000
             }
         );
+
+        console.log(`✅ Perplexity API ${model} 성공 (키 #${keyIndex + 1})`);
 
         if (response.data?.choices?.[0]?.message?.content) {
             return response.data.choices[0].message.content;
@@ -700,18 +747,30 @@ async function sendPerplexity(messages, modelIndex = 0) {
         throw new Error('Perplexity 응답 형식이 올바르지 않습니다.');
     } catch (error) {
         const status = error.response?.status;
-        console.error(`Perplexity API 오류 (${model}):`, error.response?.data || error.message);
+        console.error(`⚠️ Perplexity API 오류 (${model}, 키 #${keyIndex + 1}):`, error.response?.data || error.message);
         
         // 모델이 존재하지 않는 경우 표시
         if (status === 404 || status === 400) {
             markInvalidModel('perplexity', model, status);
         }
         
-        // 다음 모델로 재시도
+        // 401/403 (인증 오류) - 다음 키 시도
+        if ((status === 401 || status === 403) && keyIndex < PERPLEXITY_API_KEYS.length - 1) {
+            console.log(`다음 Perplexity API 키로 재시도 중...`);
+            return await sendPerplexity(messages, modelIndex, keyIndex + 1);
+        }
+        
+        // 429 (할당량 초과) - 다음 키 시도
+        if (status === 429 && keyIndex < PERPLEXITY_API_KEYS.length - 1) {
+            console.log(`다음 Perplexity API 키로 재시도 중...`);
+            return await sendPerplexity(messages, modelIndex, keyIndex + 1);
+        }
+        
+        // 모든 키 실패 시 다음 모델로 재시도
         const updatedValidModels = getValidPerplexityModels();
-        if (modelIndex < updatedValidModels.length - 1) {
+        if (keyIndex >= PERPLEXITY_API_KEYS.length - 1 && modelIndex < updatedValidModels.length - 1) {
             console.log(`다음 Perplexity 모델로 재시도 중...`);
-            return await sendPerplexity(messages, modelIndex + 1);
+            return await sendPerplexity(messages, modelIndex + 1, 0);
         }
         
         throw error;
@@ -812,7 +871,7 @@ async function generateImage(prompt) {
 
 // Gemini API 호출 함수
 async function sendGemini(userId, userMsg, guildId = null, username = null) {
-    if (!GEMINI_API_KEY) {
+    if (GEMINI_API_KEYS.length === 0) {
         throw new Error('Gemini API 키가 설정되지 않았습니다.');
     }
 
@@ -871,45 +930,76 @@ async function sendGemini(userId, userMsg, guildId = null, username = null) {
           })
         : validEndpoints;
     
+    // 모든 모델에 대해 모든 API 키 시도
     for (const [modelName, endpoint] of endpoints) {
         const payload = { contents };
-        const headers = {
-            'Content-Type': 'application/json',
-            'X-goog-api-key': GEMINI_API_KEY
-        };
         
-        try {
-            const response = await axios.post(endpoint, payload, {
-                headers,
-                timeout: 30000
-            });
+        // 각 API 키를 순차적으로 시도
+        for (let keyIndex = 0; keyIndex < GEMINI_API_KEYS.length; keyIndex++) {
+            const apiKey = GEMINI_API_KEYS[keyIndex];
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-goog-api-key': apiKey
+            };
+            
+            try {
+                const response = await axios.post(endpoint, payload, {
+                    headers,
+                    timeout: 30000
+                });
 
-            console.log(`✅ Gemini API ${modelName} 성공 (상태: ${response.status})`);
+                console.log(`✅ Gemini API ${modelName} 성공 (키 #${keyIndex + 1}, 상태: ${response.status})`);
 
-            if (response.status === 200) {
-                const botMsg = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!botMsg) {
-                    console.error(`❌ ${modelName}: 응답 구조가 올바르지 않습니다.`);
+                if (response.status === 200) {
+                    const botMsg = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!botMsg) {
+                        console.error(`❌ ${modelName}: 응답 구조가 올바르지 않습니다.`);
+                        break; // 다음 모델 시도
+                    }
+                    return botMsg;
+                }
+            } catch (error) {
+                const status = error.response?.status;
+                const isLastKey = keyIndex === GEMINI_API_KEYS.length - 1;
+                console.error(`⚠️ Gemini API ${modelName} 오류 (키 #${keyIndex + 1}): ${error.message} (상태: ${status || 'N/A'})`);
+                
+                if (error.response?.data && isLastKey) {
+                    console.error('오류 상세:', JSON.stringify(error.response.data).substring(0, 200));
+                }
+
+                // 모델이 존재하지 않는 경우 표시 (마지막 키에서만)
+                if ((status === 404 || status === 400) && isLastKey) {
+                    markInvalidModel('gemini', modelName, status);
+                    break; // 다음 모델로
+                }
+
+                // 401/403 (인증 오류) - 다음 키 시도
+                if (status === 401 || status === 403) {
+                    if (isLastKey) {
+                        console.error(`❌ 모든 Gemini API 키 인증 실패`);
+                        break; // 다음 모델로
+                    }
+                    continue; // 다음 키 시도
+                }
+
+                // 429 (할당량 초과) - 다음 키 시도
+                if (status === 429) {
+                    if (isLastKey) {
+                        console.warn(`⚠️ 모든 Gemini API 키 할당량 초과`);
+                        break; // 다음 모델로
+                    }
+                    continue; // 다음 키 시도
+                }
+
+                // 타임아웃이 아니면 다음 모델로
+                if (error.code !== 'ECONNABORTED' && error.code !== 'ETIMEDOUT' && isLastKey) {
+                    break; // 다음 모델로
+                }
+                
+                // 타임아웃이면 다음 키 시도
+                if (!isLastKey) {
                     continue;
                 }
-                return botMsg;
-            }
-        } catch (error) {
-            const status = error.response?.status;
-            console.error(`⚠️ Gemini API ${modelName} 오류: ${error.message} (상태: ${status || 'N/A'})`);
-            
-            if (error.response?.data) {
-                console.error('오류 상세:', JSON.stringify(error.response.data).substring(0, 200));
-            }
-
-            // 모델이 존재하지 않는 경우 표시
-            if (status === 404 || status === 400) {
-                markInvalidModel('gemini', modelName, status);
-            }
-
-            // 429(할당량 초과) 또는 타임아웃이 아니면 다음 모델로
-            if (status !== 429 && error.code !== 'ECONNABORTED' && error.code !== 'ETIMEDOUT') {
-                continue;
             }
         }
     }
