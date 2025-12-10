@@ -78,13 +78,20 @@ console.log(`📛 봇 이름: "${BOT_NAME}" (초기화 명령어용)`);
 
 // AI 모델별 설정 - OpenAI 모델 (2024년 12월 최신)
 const OPENAI_MODELS = [
-    'gpt-4o',                      // GPT-4 Omni (최신, 가장 강력)
-    'gpt-4o-mini',                 // GPT-4 Omni Mini (빠르고 효율적)
-    'o1-preview',                  // O1 Preview (추론 특화)
-    'o1-mini',                     // O1 Mini (빠른 추론)
-    'gpt-4-turbo',                 // GPT-4 Turbo
-    'gpt-4',                       // GPT-4
-    'gpt-3.5-turbo'                // GPT-3.5 Turbo (가장 빠름)
+    'gpt-5.1',                     // GPT-5.1 (코딩/에이전트 최적, 최신)
+    'gpt-5',                       // GPT-5 (이전 추론 모델)
+    'gpt-5-mini',                  // GPT-5 Mini (빠르고 효율적)
+    'gpt-5-nano',                  // GPT-5 Nano (가장 빠르고 저렴)
+    'gpt-5-pro',                   // GPT-5 Pro (가장 정밀)
+    'gpt-4.1',                     // GPT-4.1 (비추론 최고 모델)
+    'gpt-4.1-mini',                // GPT-4.1 Mini (빠른 버전)
+    'gpt-4.1-nano',                // GPT-4.1 Nano (초경량)
+    'o4-mini',                     // O4 Mini (빠른 추론)
+    'o3',                          // O3 (복잡한 추론)
+    'gpt-4o',                      // GPT-4 Omni (레거시)
+    'gpt-4o-mini',                 // GPT-4 Omni Mini (레거시)
+    'gpt-4-turbo',                 // GPT-4 Turbo (레거시)
+    'gpt-3.5-turbo'                // GPT-3.5 Turbo (레거시)
 ];
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_MODELS_LIST_URL = 'https://api.openai.com/v1/models';
